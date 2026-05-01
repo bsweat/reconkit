@@ -35,5 +35,8 @@ desktop.ini
 *.swp
 *.swo
 
+# Fly.io
+.fly/
+
 # Logs
 *.log
