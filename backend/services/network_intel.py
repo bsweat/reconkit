@@ -1,5 +1,6 @@
 """
-Network intelligence — WHOIS, DNS, GeoIP, Shodan, VirusTotal, subdomains.
+Network intelligence — WHOIS, DNS, GeoIP, Shodan, VirusTotal, subdomains,
+hosting provider, tech stack fingerprinting, Wayback Machine.
 """
 import asyncio
 import os
@@ -8,6 +9,7 @@ import socket
 
 import dns.resolver
 import httpx
+from bs4 import BeautifulSoup
 import whois
 
 SHODAN_KEY = os.getenv("SHODAN_API_KEY", "")
@@ -227,20 +229,210 @@ async def get_virustotal(target: str) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Hosting provider
+# ---------------------------------------------------------------------------
+
+async def get_hosting_provider(target: str) -> dict:
+    """ASN + hosting provider via ipinfo.io."""
+    ip = target
+    if not is_ip(target):
+        try:
+            ip = socket.gethostbyname(target)
+        except Exception as exc:
+            return {"ok": False, "error": f"Could not resolve {target}: {exc}"}
+
+    token = IPINFO_TOKEN
+    url   = f"https://ipinfo.io/{ip}/json" + (f"?token={token}" if token else "")
+
+    async with httpx.AsyncClient(headers=HEADERS) as client:
+        try:
+            resp = await client.get(url, timeout=8.0)
+            data = resp.json()
+            return {
+                "ok":       True,
+                "ip":       ip,
+                "org":      data.get("org"),       # e.g. "AS15169 Google LLC"
+                "hostname": data.get("hostname"),
+                "city":     data.get("city"),
+                "region":   data.get("region"),
+                "country":  data.get("country"),
+                "hosting":  data.get("hosting", False),
+                "anycast":  data.get("anycast", False),
+                "asn":      data.get("org", "").split(" ")[0] if data.get("org") else None,
+            }
+        except Exception as exc:
+            return {"ok": False, "error": str(exc)}
+
+
+# ---------------------------------------------------------------------------
+# Tech stack fingerprinting
+# ---------------------------------------------------------------------------
+
+# Header → (technology, category)
+HEADER_FINGERPRINTS: list[tuple[str, str, str]] = [
+    ("server",              r"nginx",          "Nginx"),
+    ("server",              r"apache",         "Apache"),
+    ("server",              r"iis",            "IIS"),
+    ("server",              r"cloudflare",     "Cloudflare"),
+    ("server",              r"openresty",      "OpenResty"),
+    ("server",              r"lighttpd",       "Lighttpd"),
+    ("x-powered-by",        r"php",            "PHP"),
+    ("x-powered-by",        r"asp\.net",       "ASP.NET"),
+    ("x-powered-by",        r"express",        "Express.js"),
+    ("x-powered-by",        r"next\.js",       "Next.js"),
+    ("x-generator",         r"wordpress",      "WordPress"),
+    ("x-generator",         r"drupal",         "Drupal"),
+    ("x-generator",         r"joomla",         "Joomla"),
+    ("x-drupal-cache",      r"",               "Drupal"),
+    ("x-shopify-stage",     r"",               "Shopify"),
+    ("x-wix-request-id",    r"",               "Wix"),
+    ("x-squarespace-.*",    r"",               "Squarespace"),
+]
+
+# Script src / HTML patterns
+HTML_FINGERPRINTS: list[tuple[str, str]] = [
+    (r"wp-content|wp-includes", "WordPress"),
+    (r"/_next/static",          "Next.js"),
+    (r"/__nuxt",                "Nuxt.js"),
+    (r"/ember\b",               "Ember.js"),
+    (r"angular\.min\.js|ng-version", "Angular"),
+    (r"react\.development|react\.production", "React"),
+    (r"vue\.js|vue\.min\.js",   "Vue.js"),
+    (r"jquery\.min\.js|jquery-", "jQuery"),
+    (r"gtag\(|google-analytics", "Google Analytics"),
+    (r"gtm\.js",                "Google Tag Manager"),
+    (r"cdn\.shopify\.com",      "Shopify"),
+    (r"static\.squarespace\.com", "Squarespace"),
+    (r"assets\.wix\.com",       "Wix"),
+    (r"ghost\.",                "Ghost CMS"),
+    (r"hexo",                   "Hexo"),
+    (r"gatsby",                 "Gatsby"),
+    (r"__NEXT_DATA__",          "Next.js"),
+    (r"__NUXT_DATA__",          "Nuxt.js"),
+    (r"django",                 "Django"),
+    (r"laravel",                "Laravel"),
+    (r"rails",                  "Ruby on Rails"),
+]
+
+
+async def get_tech_stack(target: str) -> dict:
+    """Single HTTP GET to fingerprint the tech stack from headers + HTML."""
+    url = target if target.startswith("http") else f"https://{target}"
+    # Also try http if https fails
+    technologies: list[str] = []
+
+    async with httpx.AsyncClient(headers=HEADERS, follow_redirects=True) as client:
+        try:
+            resp = await client.get(url, timeout=10.0)
+        except httpx.ConnectError:
+            try:
+                resp = await client.get(url.replace("https://", "http://"), timeout=10.0)
+            except Exception as exc:
+                return {"ok": False, "error": str(exc)}
+        except Exception as exc:
+            return {"ok": False, "error": str(exc)}
+
+    found: set[str] = set()
+
+    # --- Header fingerprinting ---
+    for header_name, pattern, tech_name in HEADER_FINGERPRINTS:
+        for h_key, h_val in resp.headers.items():
+            if re.match(header_name, h_key.lower()):
+                if not pattern or re.search(pattern, h_val.lower()):
+                    found.add(tech_name)
+
+    # --- HTML fingerprinting ---
+    try:
+        html = resp.text[:40_000]  # cap at 40KB
+        for pattern, tech_name in HTML_FINGERPRINTS:
+            if re.search(pattern, html, re.IGNORECASE):
+                found.add(tech_name)
+
+        # meta generator tag
+        soup = BeautifulSoup(html, "html.parser")
+        meta_gen = soup.find("meta", attrs={"name": re.compile("generator", re.I)})
+        if meta_gen and meta_gen.get("content"):
+            gen_val = str(meta_gen["content"]).strip()
+            found.add(gen_val.split(" ")[0])  # e.g. "WordPress 6.4.2" → "WordPress"
+    except Exception:
+        pass
+
+    # Detect CDN from response headers
+    via = resp.headers.get("via", "")
+    cf  = resp.headers.get("cf-ray", "")
+    if cf or "cloudflare" in via.lower():
+        found.add("Cloudflare")
+    if "fastly" in via.lower() or resp.headers.get("x-served-by", "").startswith("cache-"):
+        found.add("Fastly CDN")
+    if resp.headers.get("x-cache", "").startswith("Hit from cloudfront"):
+        found.add("AWS CloudFront")
+
+    return {
+        "ok":           True,
+        "url":          str(resp.url),
+        "status_code":  resp.status_code,
+        "technologies": sorted(found),
+        "server":       resp.headers.get("server", ""),
+        "powered_by":   resp.headers.get("x-powered-by", ""),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Wayback Machine
+# ---------------------------------------------------------------------------
+
+async def get_wayback(target: str) -> dict:
+    """Check Wayback Machine for availability and snapshot info."""
+    clean = target.removeprefix("http://").removeprefix("https://").rstrip("/")
+
+    async with httpx.AsyncClient(headers=HEADERS) as client:
+        try:
+            avail_resp = await client.get(
+                "https://archive.org/wayback/available",
+                params={"url": clean},
+                timeout=10.0,
+            )
+            avail_data = avail_resp.json()
+        except Exception as exc:
+            return {"ok": False, "error": str(exc)}
+
+    snapshot = avail_data.get("archived_snapshots", {}).get("closest", {})
+    available = snapshot.get("available", False)
+
+    return {
+        "ok":              True,
+        "available":       available,
+        "snapshot_url":    snapshot.get("url"),
+        "snapshot_ts":     snapshot.get("timestamp"),
+        "snapshot_status": snapshot.get("status"),
+        "wayback_url":     f"https://web.archive.org/web/*/{clean}",
+        "target":          clean,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Full scan — run everything concurrently
 # ---------------------------------------------------------------------------
 
-async def full_network_scan(target: str) -> dict:
+async def full_network_scan(target: str, api_keys: dict | None = None) -> dict:
+    """
+    api_keys: optional dict with shodan_key, virustotal_key, ipinfo_token
+    passed in per-request (from frontend localStorage) rather than env vars.
+    """
     domain = target if not is_ip(target) else None
+    url_target = f"https://{target}" if not target.startswith("http") else target
 
     tasks = {
-        "geoip": get_geoip(target),
-        "shodan": get_shodan(target),
+        "geoip":    get_geoip(target),
+        "shodan":   get_shodan(target),
         "virustotal": get_virustotal(target),
+        "hosting":  get_hosting_provider(target),
+        "wayback":  get_wayback(target),
     }
 
     if domain:
         tasks["subdomains"] = get_subdomains(domain)
+        tasks["tech_stack"] = get_tech_stack(url_target)
 
     results = await asyncio.gather(*tasks.values(), return_exceptions=True)
     output = {}

@@ -40,3 +40,10 @@ desktop.ini
 
 # Logs
 *.log
+
+# Node / Frontend
+frontend/node_modules/
+frontend/dist/
+
+# Sherlock cache (regenerated on startup)
+backend/data/sherlock_sites.json
