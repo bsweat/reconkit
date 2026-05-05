@@ -11,8 +11,8 @@ export function PeopleTab() {
       <ProfileCard />
       {/* Full-width username sweep */}
       <UsernameSweepCard />
-      {/* Two-up row: email + pastes */}
-      <div className="scan-grid" style={{ marginTop: 12 }}>
+      {/* Two-up row: email + pastes — always 2 columns, full width */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}>
         <EmailCard />
         <PasteCard />
       </div>

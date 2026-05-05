@@ -14,6 +14,8 @@ export function PasteCard() {
       title="PASTE SITES"
       status={liveCount > 0 ? 'found' : status}
       statusLabel={status === 'done' ? (liveCount > 0 ? `${liveCount} live hits` : 'manual links ready') : null}
+      defaultOpen={false}
+      autoOpen
     >
       {!query && status === 'idle' ? (
         <div className="empty-state">Provide a username or email to enable</div>

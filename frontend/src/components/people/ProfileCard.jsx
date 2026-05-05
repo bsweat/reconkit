@@ -9,9 +9,11 @@ export function ProfileCard() {
 
   const facts = []
 
-  if (profile.full_name) facts.push({ label: 'NAME', value: profile.full_name })
-  if (profile.location)  facts.push({ label: 'LOCATION', value: profile.location })
-  if (profile.employer)  facts.push({ label: 'EMPLOYER', value: profile.employer })
+  if (profile.full_name)       facts.push({ label: 'NAME',     value: profile.full_name })
+  if (profile.usernames.length) facts.push({ label: 'USERNAME', value: profile.usernames.join(', ') })
+  if (profile.email)            facts.push({ label: 'EMAIL',    value: profile.email })
+  if (profile.location)         facts.push({ label: 'LOCATION', value: profile.location })
+  if (profile.employer)         facts.push({ label: 'EMPLOYER', value: profile.employer })
 
   // From GitHub
   if (gh.profile) {

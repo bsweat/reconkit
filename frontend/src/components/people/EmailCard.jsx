@@ -18,6 +18,8 @@ export function EmailCard() {
       title="EMAIL INTEL"
       status={status === 'done' && breachCount > 0 ? 'found' : status}
       statusLabel={statusLabel}
+      defaultOpen={false}
+      autoOpen
     >
       {!email && status === 'idle' ? (
         <div className="empty-state">Provide an email to enable</div>

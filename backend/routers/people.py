@@ -124,7 +124,7 @@ async def username_lookup(req: UsernameRequest):
             }
         yield {"event": "done", "data": json.dumps({"checked": checked, "total": total, "found_total": found_count})}
 
-    return EventSourceResponse(generator())
+    return EventSourceResponse(generator(), headers={"X-Accel-Buffering": "no"})
 
 
 # ---------------------------------------------------------------------------
@@ -143,7 +143,7 @@ async def github_lookup(req: GitHubRequest):
                 "data":  json.dumps(payload.get("data", {})),
             }
 
-    return EventSourceResponse(generator())
+    return EventSourceResponse(generator(), headers={"X-Accel-Buffering": "no"})
 
 
 # ---------------------------------------------------------------------------
