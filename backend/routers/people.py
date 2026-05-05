@@ -109,6 +109,9 @@ async def username_lookup(req: UsernameRequest):
     """Stream SSE events as each site check completes."""
 
     async def generator():
+        from services.username_checker import SITES
+        total = len(SITES)
+        yield {"event": "start", "data": json.dumps({"total": total})}
         found_count = 0
         checked = 0
         async for result in stream_username_check(req.username):
@@ -117,9 +120,9 @@ async def username_lookup(req: UsernameRequest):
                 found_count += 1
             yield {
                 "event": "result",
-                "data": json.dumps({**result, "checked": checked, "found_total": found_count}),
+                "data": json.dumps({**result, "checked": checked, "total": total, "found_total": found_count}),
             }
-        yield {"event": "done", "data": json.dumps({"checked": checked, "found_total": found_count})}
+        yield {"event": "done", "data": json.dumps({"checked": checked, "total": total, "found_total": found_count})}
 
     return EventSourceResponse(generator())
 

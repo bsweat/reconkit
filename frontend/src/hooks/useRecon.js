@@ -105,10 +105,12 @@ export function useRecon() {
       await readSSEStream(response, {
         signal,
         onEvent(eventName, data) {
-          if (eventName === 'result') {
+          if (eventName === 'start') {
+            store.setResult('username_sweep', { total: data.total })
+          } else if (eventName === 'result') {
             store.appendSweepResult(data)
           } else if (eventName === 'done') {
-            store.setResult('username_sweep', { status: 'done', checked: data.checked, total: data.checked })
+            store.setResult('username_sweep', { status: 'done', checked: data.checked, total: data.total || data.checked })
           }
         },
         onError() { store.setResult('username_sweep', { status: 'error' }) },

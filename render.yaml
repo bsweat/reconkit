@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: reconkit
+    runtime: docker
+    plan: free
+    healthCheckPath: /health
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: PORT
+        value: "10000"
