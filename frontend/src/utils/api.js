@@ -70,7 +70,8 @@ export async function readSSEStream(response, { onEvent, onDone, onError, signal
       const { done, value } = await reader.read()
       if (done) break
 
-      buffer += decoder.decode(value, { stream: true })
+      // Normalize CRLF → LF so the split works regardless of server line endings
+      buffer += decoder.decode(value, { stream: true }).replace(/\r\n/g, '\n')
 
       // SSE messages are separated by double newline
       const messages = buffer.split('\n\n')
