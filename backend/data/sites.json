@@ -1,5 +1,5 @@
 [
-  { "name": "GitHub",       "url": "https://github.com/{}",                            "error_type": "status_404", "category": "dev" },
+  { "name": "GitHub",       "url": "https://github.com/{}",                            "error_type": "content",    "error_text": "not found", "category": "dev" },
   { "name": "GitLab",       "url": "https://gitlab.com/{}",                            "error_type": "status_404", "category": "dev" },
   { "name": "Replit",       "url": "https://replit.com/@{}",                           "error_type": "status_404", "category": "dev" },
   { "name": "CodePen",      "url": "https://codepen.io/{}",                            "error_type": "status_404", "category": "dev" },
@@ -11,13 +11,12 @@
   { "name": "Bitbucket",    "url": "https://bitbucket.org/{}/",                        "error_type": "status_404", "category": "dev" },
 
   { "name": "Reddit",       "url": "https://www.reddit.com/user/{}/about.json",        "error_type": "status_404", "category": "social" },
-  { "name": "YouTube",      "url": "https://www.youtube.com/@{}",                      "error_type": "status_404", "category": "social" },
-  { "name": "Twitch",       "url": "https://www.twitch.tv/{}",                         "error_type": "status_404", "category": "social" },
+  { "name": "YouTube",      "url": "https://www.youtube.com/@{}",                      "error_type": "content",    "error_text": "404 not found", "category": "social" },
   { "name": "Bluesky",      "url": "https://bsky.app/profile/{}",                      "error_type": "status_404", "category": "social" },
   { "name": "Tumblr",       "url": "https://www.tumblr.com/{}",                        "error_type": "status_404", "category": "social" },
   { "name": "Medium",       "url": "https://medium.com/@{}",                           "error_type": "status_404", "category": "social" },
   { "name": "Flickr",       "url": "https://www.flickr.com/people/{}",                 "error_type": "status_404", "category": "social" },
-  { "name": "Soundcloud",   "url": "https://soundcloud.com/{}",                        "error_type": "status_404", "category": "social" },
+  { "name": "Soundcloud",   "url": "https://soundcloud.com/{}",                        "error_type": "content",    "error_text": "hear the world's sounds", "category": "social" },
   { "name": "DeviantArt",   "url": "https://www.deviantart.com/{}",                    "error_type": "status_404", "category": "social" },
   { "name": "Behance",      "url": "https://www.behance.net/{}",                       "error_type": "status_404", "category": "social" },
   { "name": "Dribbble",     "url": "https://dribbble.com/{}",                          "error_type": "status_404", "category": "social" },

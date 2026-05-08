@@ -26,10 +26,18 @@ DATA_DIR = Path(__file__).parent.parent / "data"
 SHERLOCK_CACHE = DATA_DIR / "sherlock_sites.json"
 FALLBACK_PATH  = DATA_DIR / "sites.json"
 
-# Intentionally skipped: JS-rendered SPAs / auth-walled sites
+# Intentionally skipped: JS-rendered SPAs / auth-walled / unreliable sites
 SKIP_SITES = {
+    # Always 200 regardless of user — can't detect server-side
     "twitter", "x", "instagram", "tiktok", "threads", "snapchat",
     "pinterest", "kaggle", "patreon", "facebook", "$schema",
+    "twitch",
+
+    # Removed by request — irrelevant / unreliable
+    "mercadolivre", "mercadolibre",
+    "cracked",
+    "cryptohack",
+    "ninjakiwi",
 }
 
 CATEGORY_KEYWORDS = {
